@@ -6,6 +6,7 @@ import { PreviewArea } from './components/PreviewArea';
 import { SettingsModal } from './components/SettingsModal';
 import { generateCode } from './utils/gemini';
 import type { PromptItem } from './utils/promptLibrary';
+import type { OutputSource, VersionRecord } from './types/workspace';
 
 const initialMessages: ChatMessage[] = [
   {
@@ -19,6 +20,8 @@ interface StoredWorkspace {
   currentCategory: string;
   messages: ChatMessage[];
   generatedCode: string;
+  outputSource: OutputSource;
+  versions: VersionRecord[];
 }
 
 const WORKSPACE_STORAGE_KEY = 'vibecraft_workspace_v1';
@@ -35,6 +38,8 @@ const readStoredWorkspace = (): StoredWorkspace | null => {
       currentCategory: parsed.currentCategory || 'portfolios',
       messages: parsed.messages,
       generatedCode: parsed.generatedCode || '',
+      outputSource: parsed.outputSource || (parsed.generatedCode ? 'demo' : 'empty'),
+      versions: Array.isArray(parsed.versions) ? parsed.versions : [],
     };
   } catch {
     return null;
@@ -42,9 +47,12 @@ const readStoredWorkspace = (): StoredWorkspace | null => {
 };
 
 function App() {
+  const storedWorkspace = readStoredWorkspace();
   const [currentCategory, setCurrentCategory] = useState(() => readStoredWorkspace()?.currentCategory || 'portfolios');
-  const [messages, setMessages] = useState<ChatMessage[]>(() => readStoredWorkspace()?.messages || initialMessages);
-  const [generatedCode, setGeneratedCode] = useState<string>(() => readStoredWorkspace()?.generatedCode || '');
+  const [messages, setMessages] = useState<ChatMessage[]>(() => storedWorkspace?.messages || initialMessages);
+  const [generatedCode, setGeneratedCode] = useState<string>(() => storedWorkspace?.generatedCode || '');
+  const [outputSource, setOutputSource] = useState<OutputSource>(() => storedWorkspace?.outputSource || 'empty');
+  const [versions, setVersions] = useState<VersionRecord[]>(() => storedWorkspace?.versions || []);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [activeStep, setActiveStep] = useState<number>(0);
   const [stepStatusText, setStepStatusText] = useState<string>('');
@@ -55,15 +63,28 @@ function App() {
 
   const createId = () => crypto.randomUUID();
 
+  const createVersion = (code: string, source: OutputSource, label: string): VersionRecord => ({
+    id: createId(),
+    label,
+    source,
+    code,
+    createdAt: new Date().toISOString(),
+  });
+
+  const latestSavedCode = versions.at(-1)?.code || '';
+  const hasUnsavedManualChanges = Boolean(generatedCode) && generatedCode !== latestSavedCode;
+
   useEffect(() => {
     const workspace: StoredWorkspace = {
       currentCategory,
       messages,
       generatedCode,
+      outputSource,
+      versions,
     };
 
     localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(workspace));
-  }, [currentCategory, generatedCode, messages]);
+  }, [currentCategory, generatedCode, messages, outputSource, versions]);
 
   const handleSendPrompt = async (promptText: string) => {
     if (!promptText.trim()) return;
@@ -89,8 +110,14 @@ function App() {
         setActiveStep(step);
         setStepStatusText(status);
       }, previousCode);
+      const nextSource: OutputSource = isOnlineGeneration ? 'ai' : 'demo';
       
       setGeneratedCode(code);
+      setOutputSource(nextSource);
+      setVersions(prev => [
+        ...prev,
+        createVersion(code, nextSource, previousCode ? 'AI Refinement' : nextSource === 'ai' ? 'AI Generation' : 'Demo Template'),
+      ]);
       setMessages(prev => [
         ...prev,
         {
@@ -129,8 +156,34 @@ function App() {
       }
     ]);
     setGeneratedCode('');
+    setOutputSource('empty');
+    setVersions([]);
     setInputVal('');
     setErrorMsg(null);
+  };
+
+  const handleCodeChange = (code: string) => {
+    setGeneratedCode(code);
+    setOutputSource(code.trim() ? 'manual' : 'empty');
+  };
+
+  const handleSaveRevision = () => {
+    if (!generatedCode.trim() || !hasUnsavedManualChanges) return;
+    setVersions(prev => [
+      ...prev,
+      createVersion(generatedCode, 'manual', 'Manual Edit'),
+    ]);
+  };
+
+  const handleRestoreVersion = (versionId: string) => {
+    const version = versions.find(item => item.id === versionId);
+    if (!version) return;
+    setGeneratedCode(version.code);
+    setOutputSource(version.source);
+    setMessages(prev => [
+      ...prev,
+      { id: createId(), sender: 'ai', text: `Restored revision: ${version.label}.` }
+    ]);
   };
 
   return (
@@ -159,7 +212,15 @@ function App() {
       />
 
       {/* Right side live sandboxed preview */}
-      <PreviewArea code={generatedCode} />
+      <PreviewArea
+        code={generatedCode}
+        outputSource={outputSource}
+        versions={versions}
+        hasUnsavedChanges={hasUnsavedManualChanges}
+        onCodeChange={handleCodeChange}
+        onSaveRevision={handleSaveRevision}
+        onRestoreVersion={handleRestoreVersion}
+      />
 
       {/* Settings Modal */}
       <SettingsModal

@@ -26,3 +26,37 @@ test('offline demo generates a starter app preview', async ({ page }) => {
   await expect(page.locator('iframe[title="VibeCraft Sandbox Preview"]')).toBeVisible();
   expect(consoleErrors).toEqual([]);
 });
+
+test('code editor updates preview and flags risky html', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    localStorage.clear();
+  });
+  await page.reload();
+
+  await page.getByText('Photographer Lightbox Showcase').click();
+  await expect(page.getByText('Loaded a matching offline demo template.')).toBeVisible({
+    timeout: 8000,
+  });
+
+  await page.getByRole('button', { name: /code view/i }).click();
+  await page.getByLabel('Generated HTML code editor').fill(`<!DOCTYPE html>
+<html lang="en">
+<body>
+  <h1>Manual Marker</h1>
+  <button onclick="alert('test')">Unsafe button</button>
+  <script src="https://example.com/evil.js"></script>
+</body>
+</html>`);
+
+  await expect(page.getByText('Security Warning')).toBeVisible();
+  await expect(page.getByText(/External script/)).toBeVisible();
+  await expect(page.getByText(/Inline event handlers/)).toBeVisible();
+  await expect(page.getByRole('button', { name: /save revision/i })).toBeVisible();
+
+  await page.getByRole('button', { name: /save revision/i }).click();
+  await expect(page.locator('span').filter({ hasText: /^MANUAL EDIT$/ })).toBeVisible();
+
+  await page.getByRole('button', { name: /live preview/i }).click();
+  await expect(page.frameLocator('iframe[title="VibeCraft Sandbox Preview"]').getByText('Manual Marker')).toBeVisible();
+});

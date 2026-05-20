@@ -1,13 +1,44 @@
-import React, { useState } from 'react';
-import { Eye, Code, Copy, Download, Check } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { AlertTriangle, Check, Code, Copy, Download, Eye, RotateCcw, Save } from 'lucide-react';
+import type { OutputSource, VersionRecord } from '../types/workspace';
+import { scanGeneratedHtml } from '../utils/riskScanner';
 
 interface PreviewAreaProps {
   code: string;
+  outputSource: OutputSource;
+  versions: VersionRecord[];
+  hasUnsavedChanges: boolean;
+  onCodeChange: (code: string) => void;
+  onSaveRevision: () => void;
+  onRestoreVersion: (versionId: string) => void;
 }
 
-export const PreviewArea: React.FC<PreviewAreaProps> = ({ code }) => {
+const sourceLabels: Record<OutputSource, string> = {
+  empty: 'NO OUTPUT',
+  demo: 'DEMO TEMPLATE',
+  ai: 'AI GENERATED',
+  manual: 'MANUAL EDIT',
+};
+
+const sourceColors: Record<OutputSource, string> = {
+  empty: 'var(--text-muted)',
+  demo: '#f59e0b',
+  ai: '#10b981',
+  manual: 'var(--accent-cyan)',
+};
+
+export const PreviewArea: React.FC<PreviewAreaProps> = ({
+  code,
+  outputSource,
+  versions,
+  hasUnsavedChanges,
+  onCodeChange,
+  onSaveRevision,
+  onRestoreVersion,
+}) => {
   const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
   const [copied, setCopied] = useState(false);
+  const risks = useMemo(() => scanGeneratedHtml(code), [code]);
 
   const handleCopy = () => {
     if (code) {
@@ -105,7 +136,52 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({ code }) => {
 
         {/* Action Controls */}
         {code && (
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <span style={{
+              fontSize: '10px',
+              color: sourceColors[outputSource],
+              border: `1px solid ${sourceColors[outputSource]}`,
+              borderRadius: '999px',
+              padding: '5px 8px',
+              fontWeight: 800,
+              letterSpacing: '0.3px',
+              whiteSpace: 'nowrap'
+            }}>
+              {sourceLabels[outputSource]}{hasUnsavedChanges ? ' *' : ''}
+            </span>
+            {versions.length > 0 && (
+              <label style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <RotateCcw size={13} style={{ position: 'absolute', left: '9px', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                <select
+                  aria-label="Restore saved revision"
+                  value=""
+                  onChange={(event) => onRestoreVersion(event.target.value)}
+                  style={{
+                    width: '120px',
+                    padding: '6px 8px 6px 28px',
+                    borderRadius: '6px',
+                    fontSize: '11.5px'
+                  }}
+                >
+                  <option value="">History ({versions.length})</option>
+                  {[...versions].reverse().map((version) => (
+                    <option key={version.id} value={version.id}>
+                      {version.label} · {new Date(version.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {hasUnsavedChanges && (
+              <button
+                onClick={onSaveRevision}
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '11.5px', gap: '6px' }}
+              >
+                <Save size={13} />
+                Save Revision
+              </button>
+            )}
             <button
               onClick={handleCopy}
               className="btn btn-secondary"
@@ -127,6 +203,40 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({ code }) => {
       </div>
 
       {/* Main Content Area */}
+      {risks.length > 0 && (
+        <div style={{
+          padding: '10px 20px',
+          borderBottom: '1px solid rgba(245, 158, 11, 0.24)',
+          background: 'rgba(245, 158, 11, 0.08)',
+          color: '#fbbf24',
+          display: 'flex',
+          gap: '10px',
+          alignItems: 'flex-start'
+        }}>
+          <AlertTriangle size={16} style={{ marginTop: '2px', flexShrink: 0 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+            <strong style={{ fontSize: '12px' }}>Security Warning</strong>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {risks.map((risk) => (
+                <span key={risk.id} style={{
+                  fontSize: '11px',
+                  color: risk.level === 'danger' ? '#fecaca' : '#fde68a',
+                  border: `1px solid ${risk.level === 'danger' ? 'rgba(248, 113, 113, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`,
+                  borderRadius: '999px',
+                  padding: '3px 7px',
+                  maxWidth: '100%',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {risk.label}: {risk.detail}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         {!code ? (
           /* Empty Code State */
@@ -175,23 +285,34 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({ code }) => {
             }}
           />
         ) : (
-          /* Syntax Highlighter / Code view */
+          /* Editable code view */
           <div style={{
             height: '100%',
-            overflowY: 'auto',
             padding: '20px',
             backgroundColor: 'var(--bg-primary)'
           }}>
-            <pre style={{
+            <textarea
+              aria-label="Generated HTML code editor"
+              value={code}
+              onChange={(event) => onCodeChange(event.target.value)}
+              spellCheck={false}
+              style={{
+              width: '100%',
+              height: '100%',
+              resize: 'none',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              backgroundColor: '#09090e',
               fontFamily: 'var(--font-mono)',
               fontSize: '12px',
               color: '#d4d4d8',
               lineHeight: '1.5',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-all'
-            }}>
-              <code>{code}</code>
-            </pre>
+              padding: '14px',
+              outline: 'none',
+              whiteSpace: 'pre',
+              overflow: 'auto'
+            }}
+            />
           </div>
         )}
       </div>
