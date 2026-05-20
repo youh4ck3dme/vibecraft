@@ -6,7 +6,7 @@ import { PreviewArea } from './components/PreviewArea';
 import { SettingsModal } from './components/SettingsModal';
 import { generateCode } from './utils/gemini';
 import type { PromptItem } from './utils/promptLibrary';
-import type { OutputSource, VersionRecord } from './types/workspace';
+import type { GenerationMode, OutputSource, VersionRecord } from './types/workspace';
 
 const initialMessages: ChatMessage[] = [
   {
@@ -22,6 +22,7 @@ interface StoredWorkspace {
   generatedCode: string;
   outputSource: OutputSource;
   versions: VersionRecord[];
+  generationMode: GenerationMode;
 }
 
 const WORKSPACE_STORAGE_KEY = 'vibecraft_workspace_v1';
@@ -40,6 +41,7 @@ const readStoredWorkspace = (): StoredWorkspace | null => {
       generatedCode: parsed.generatedCode || '',
       outputSource: parsed.outputSource || (parsed.generatedCode ? 'demo' : 'empty'),
       versions: Array.isArray(parsed.versions) ? parsed.versions : [],
+      generationMode: parsed.generationMode || (parsed.generatedCode ? 'refine' : 'build'),
     };
   } catch {
     return null;
@@ -48,11 +50,12 @@ const readStoredWorkspace = (): StoredWorkspace | null => {
 
 function App() {
   const storedWorkspace = readStoredWorkspace();
-  const [currentCategory, setCurrentCategory] = useState(() => readStoredWorkspace()?.currentCategory || 'portfolios');
+  const [currentCategory, setCurrentCategory] = useState(() => storedWorkspace?.currentCategory || 'portfolios');
   const [messages, setMessages] = useState<ChatMessage[]>(() => storedWorkspace?.messages || initialMessages);
   const [generatedCode, setGeneratedCode] = useState<string>(() => storedWorkspace?.generatedCode || '');
   const [outputSource, setOutputSource] = useState<OutputSource>(() => storedWorkspace?.outputSource || 'empty');
   const [versions, setVersions] = useState<VersionRecord[]>(() => storedWorkspace?.versions || []);
+  const [generationMode, setGenerationMode] = useState<GenerationMode>(() => storedWorkspace?.generationMode || 'build');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [activeStep, setActiveStep] = useState<number>(0);
   const [stepStatusText, setStepStatusText] = useState<string>('');
@@ -81,12 +84,13 @@ function App() {
       generatedCode,
       outputSource,
       versions,
+      generationMode,
     };
 
     localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(workspace));
-  }, [currentCategory, generatedCode, messages, outputSource, versions]);
+  }, [currentCategory, generatedCode, messages, outputSource, versions, generationMode]);
 
-  const handleSendPrompt = async (promptText: string) => {
+  const handleSendPrompt = async (promptText: string, requestedMode = generationMode) => {
     if (!promptText.trim()) return;
 
     setErrorMsg(null);
@@ -101,30 +105,57 @@ function App() {
 
     setIsGenerating(true);
     setActiveStep(0);
-    setStepStatusText(generatedCode ? 'Preparing current app for refinement...' : 'Initializing...');
+    setStepStatusText(requestedMode === 'build' ? 'Initializing new app build...' : `Starting ${requestedMode} mode...`);
 
     try {
-      const previousCode = generatedCode.trim() ? generatedCode : undefined;
+      const previousCode = requestedMode === 'build' ? undefined : generatedCode.trim() ? generatedCode : undefined;
       const isOnlineGeneration = Boolean(localStorage.getItem('vibecraft_api_key'));
-      const code = await generateCode(promptText, (step, status) => {
+      const result = await generateCode(promptText, (step, status) => {
         setActiveStep(step);
         setStepStatusText(status);
-      }, previousCode);
+      }, previousCode, requestedMode);
+
+      if (result.type === 'explanation') {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: createId(),
+            sender: 'ai',
+            text: result.content,
+          }
+        ]);
+        return;
+      }
+
+      const code = result.content;
       const nextSource: OutputSource = isOnlineGeneration ? 'ai' : 'demo';
       
       setGeneratedCode(code);
       setOutputSource(nextSource);
+      setGenerationMode('refine');
       setVersions(prev => [
         ...prev,
-        createVersion(code, nextSource, previousCode ? 'AI Refinement' : nextSource === 'ai' ? 'AI Generation' : 'Demo Template'),
+        createVersion(
+          code,
+          nextSource,
+          requestedMode === 'fix'
+            ? 'AI Fix'
+            : requestedMode === 'refine'
+              ? 'AI Refinement'
+              : nextSource === 'ai'
+                ? 'AI Generation'
+                : 'Demo Template'
+        ),
       ]);
       setMessages(prev => [
         ...prev,
         {
           id: createId(),
           sender: 'ai',
-          text: previousCode
-            ? 'Updated your application. The preview and code view now reflect the requested change.'
+          text: requestedMode === 'fix'
+            ? 'Applied a targeted fix. The preview and code view now reflect the corrected app.'
+            : requestedMode === 'refine'
+              ? 'Updated your application. The preview and code view now reflect the requested change.'
             : isOnlineGeneration
               ? 'Successfully generated your application! Click "Live Preview" or "Code View" on the right to examine it.'
               : 'Loaded a matching offline demo template. Add a Gemini API key in Settings to generate custom apps from scratch.',
@@ -144,7 +175,8 @@ function App() {
 
   const handleSelectPrompt = (prompt: PromptItem) => {
     setInputVal(prompt.prompt);
-    handleSendPrompt(prompt.prompt);
+    setGenerationMode('build');
+    handleSendPrompt(prompt.prompt, 'build');
   };
 
   const handleNewChat = () => {
@@ -158,6 +190,7 @@ function App() {
     setGeneratedCode('');
     setOutputSource('empty');
     setVersions([]);
+    setGenerationMode('build');
     setInputVal('');
     setErrorMsg(null);
   };
@@ -209,6 +242,8 @@ function App() {
         inputVal={inputVal}
         setInputVal={setInputVal}
         hasGeneratedCode={Boolean(generatedCode)}
+        generationMode={generationMode}
+        onGenerationModeChange={setGenerationMode}
       />
 
       {/* Right side live sandboxed preview */}

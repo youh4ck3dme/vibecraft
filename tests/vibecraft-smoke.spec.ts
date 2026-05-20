@@ -60,3 +60,25 @@ test('code editor updates preview and flags risky html', async ({ page }) => {
   await page.getByRole('button', { name: /live preview/i }).click();
   await expect(page.frameLocator('iframe[title="VibeCraft Sandbox Preview"]').getByText('Manual Marker')).toBeVisible();
 });
+
+test('explain mode answers without replacing the current app', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    localStorage.clear();
+  });
+  await page.reload();
+
+  await page.getByText('Photographer Lightbox Showcase').click();
+  await expect(page.getByText('Loaded a matching offline demo template.')).toBeVisible({
+    timeout: 8000,
+  });
+  await expect(page.locator('span').filter({ hasText: /^DEMO TEMPLATE$/ })).toBeVisible();
+
+  await page.getByRole('button', { name: /^Explain$/ }).click();
+  await page.getByRole('textbox').fill('What does this app do?');
+  await page.getByRole('textbox').press('Enter');
+
+  await expect(page.getByText(/Demo Offline Mode explanation/)).toBeVisible();
+  await expect(page.locator('span').filter({ hasText: /^DEMO TEMPLATE$/ })).toBeVisible();
+  await expect(page.locator('iframe[title="VibeCraft Sandbox Preview"]')).toBeVisible();
+});

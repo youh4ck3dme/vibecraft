@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { ArrowRight, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
+import type { GenerationMode } from '../types/workspace';
 
 export interface ChatMessage {
   id: string;
@@ -22,7 +23,23 @@ interface ChatAreaProps {
   inputVal: string;
   setInputVal: (val: string) => void;
   hasGeneratedCode: boolean;
+  generationMode: GenerationMode;
+  onGenerationModeChange: (mode: GenerationMode) => void;
 }
+
+const modeOptions: Array<{ mode: GenerationMode; label: string }> = [
+  { mode: 'build', label: 'Build' },
+  { mode: 'refine', label: 'Refine' },
+  { mode: 'fix', label: 'Fix' },
+  { mode: 'explain', label: 'Explain' },
+];
+
+const modeSubtitles: Record<GenerationMode, string> = {
+  build: 'Create a new standalone app',
+  refine: 'Change the current app',
+  fix: 'Repair the current app',
+  explain: 'Explain without changing code',
+};
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
   messages,
@@ -33,7 +50,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onSendPrompt,
   inputVal,
   setInputVal,
-  hasGeneratedCode
+  hasGeneratedCode,
+  generationMode,
+  onGenerationModeChange
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -82,19 +101,19 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         <div>
           <h2 style={{ fontSize: '14px', fontWeight: 700 }}>Workspace Studio</h2>
           <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-            {hasGeneratedCode ? 'Refine the current generated app or export the result' : 'Describe layout parameters and generate output files'}
+            {modeSubtitles[generationMode]}
           </p>
         </div>
         <div style={{
           fontSize: '11px',
-          color: hasGeneratedCode ? '#10b981' : 'var(--text-secondary)',
+          color: generationMode === 'build' ? 'var(--text-secondary)' : '#10b981',
           border: '1px solid var(--border-color)',
           borderRadius: '999px',
           padding: '5px 9px',
           background: 'rgba(255,255,255,0.025)',
           fontWeight: 700
         }}>
-          {hasGeneratedCode ? 'Refine Mode' : 'Build Mode'}
+          {generationMode.toUpperCase()} MODE
         </div>
       </div>
 
@@ -231,6 +250,48 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         backgroundColor: 'var(--bg-secondary)'
       }}>
         <div style={{
+          display: 'flex',
+          gap: '6px',
+          marginBottom: '10px',
+          background: 'rgba(0, 0, 0, 0.18)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '10px',
+          padding: '4px'
+        }}>
+          {modeOptions.map(({ mode, label }) => {
+            const isActive = generationMode === mode;
+            const needsCode = mode !== 'build';
+            const isDisabled = needsCode && !hasGeneratedCode;
+
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => onGenerationModeChange(mode)}
+                disabled={isDisabled || isGenerating}
+                aria-pressed={isActive}
+                title={modeSubtitles[mode]}
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  borderRadius: '7px',
+                  padding: '7px 8px',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: '11.5px',
+                  fontWeight: 800,
+                  cursor: isDisabled || isGenerating ? 'not-allowed' : 'pointer',
+                  color: isActive ? '#020617' : 'var(--text-secondary)',
+                  background: isActive ? 'var(--accent-cyan)' : 'transparent',
+                  opacity: isDisabled ? 0.35 : 1,
+                  transition: 'all var(--transition-fast)'
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{
           position: 'relative',
           display: 'flex',
           alignItems: 'center',
@@ -241,7 +302,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             value={inputVal}
             onChange={(e) => setInputVal(e.target.value)}
             disabled={isGenerating}
-            placeholder={isGenerating ? "AI is crafting your application..." : hasGeneratedCode ? "Ask for a change to this app..." : "Ask to build your application..."}
+            placeholder={
+              isGenerating
+                ? 'AI is working...'
+                : generationMode === 'fix'
+                  ? 'Describe the bug or broken behavior...'
+                  : generationMode === 'explain'
+                    ? 'Ask what this app does or how it works...'
+                    : generationMode === 'refine'
+                      ? 'Ask for a change to this app...'
+                      : 'Ask to build your application...'
+            }
             style={{
               width: '100%',
               padding: '14px 50px 14px 18px',
