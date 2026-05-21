@@ -23,6 +23,7 @@ playwright-report/
 blob-report/
 coverage/
 .vite/
+.vercel/
 
 # Generated verification screenshots
 vibecraft-*.png
