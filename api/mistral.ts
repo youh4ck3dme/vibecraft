@@ -1,4 +1,16 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
+declare const process: {
+  env: Record<string, string | undefined>;
+};
+
+type NodeLikeRequest = AsyncIterable<string | { toString(): string }> & {
+  method?: string;
+};
+
+type NodeLikeResponse = {
+  statusCode: number;
+  setHeader: (name: string, value: string) => void;
+  end: (body?: string) => void;
+};
 
 type MistralProxyRequest = {
   systemPrompt?: unknown;
@@ -17,22 +29,22 @@ type MistralResponse = {
 const MAX_PROMPT_CHARS = 650_000;
 const DEFAULT_MODEL = 'mistral-large-latest';
 
-const readJsonBody = async (req: IncomingMessage): Promise<MistralProxyRequest> => {
-  const chunks: Buffer[] = [];
+const readJsonBody = async (req: NodeLikeRequest): Promise<MistralProxyRequest> => {
+  let rawBody = '';
 
   for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    rawBody += typeof chunk === 'string' ? chunk : chunk.toString();
   }
 
-  if (chunks.length === 0) {
+  if (!rawBody) {
     return {};
   }
 
-  return JSON.parse(Buffer.concat(chunks).toString('utf8')) as MistralProxyRequest;
+  return JSON.parse(rawBody) as MistralProxyRequest;
 };
 
 const writeJson = (
-  res: ServerResponse,
+  res: NodeLikeResponse,
   statusCode: number,
   payload: Record<string, unknown>
 ) => {
@@ -47,7 +59,7 @@ const getMistralKeys = (): string[] => [
   process.env.MISTRAL_API_KEY_2?.trim(),
 ].filter((key): key is string => Boolean(key));
 
-export default async function handler(req: IncomingMessage, res: ServerResponse) {
+export default async function handler(req: NodeLikeRequest, res: NodeLikeResponse) {
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
     res.setHeader('Allow', 'POST, OPTIONS');
