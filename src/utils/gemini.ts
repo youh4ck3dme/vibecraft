@@ -17,16 +17,21 @@ const getConfiguredProvider = (): AiProvider => {
   return provider === 'gemini' ? 'gemini' : 'mistral';
 };
 
+const isMistralServerProxyEnabled = (): boolean =>
+  import.meta.env.VITE_MISTRAL_SERVER_PROXY === 'true';
+
+const getMistralBrowserKeys = (): string[] => [
+  localStorage.getItem('vibecraft_mistral_api_key_1')?.trim(),
+  localStorage.getItem('vibecraft_mistral_api_key_2')?.trim(),
+].filter((key): key is string => Boolean(key));
+
 export const hasConfiguredAiProvider = (): boolean => {
   const provider = getConfiguredProvider();
   if (provider === 'gemini') {
     return Boolean(localStorage.getItem('vibecraft_api_key')?.trim());
   }
 
-  return Boolean(
-    localStorage.getItem('vibecraft_mistral_api_key_1')?.trim()
-    || localStorage.getItem('vibecraft_mistral_api_key_2')?.trim()
-  );
+  return isMistralServerProxyEnabled() || getMistralBrowserKeys().length > 0;
 };
 
 export const generateCode = async (
@@ -181,11 +186,34 @@ const generateWithMistral = async ({
   systemPrompt: string;
   userPrompt: string;
 }): Promise<string> => {
-  const keys = [
-    localStorage.getItem('vibecraft_mistral_api_key_1')?.trim(),
-    localStorage.getItem('vibecraft_mistral_api_key_2')?.trim(),
-  ].filter((key): key is string => Boolean(key));
+  const keys = getMistralBrowserKeys();
   const modelName = localStorage.getItem('vibecraft_mistral_model') || 'mistral-large-latest';
+
+  if (keys.length === 0 && isMistralServerProxyEnabled()) {
+    const response = await fetch('/api/mistral', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        systemPrompt,
+        userPrompt,
+        model: modelName,
+      }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({})) as { error?: string };
+      throw new Error(data.error || `Mistral server proxy failed with ${response.status}.`);
+    }
+
+    const data = await response.json() as { content?: string };
+    if (!data.content) {
+      throw new Error('Mistral server proxy returned an empty response.');
+    }
+
+    return data.content;
+  }
 
   let lastError: Error | null = null;
 

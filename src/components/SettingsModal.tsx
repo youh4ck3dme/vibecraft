@@ -186,7 +186,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
         }}>
           <HelpCircle size={22} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
           <span>
-            API keys are stored only in this browser localStorage and are sent directly from the browser to the selected provider. Without a configured key, VibeCraft runs in <strong>Offline Demo Mode</strong> with built-in templates.
+            Browser API keys are stored only in this browser localStorage and are sent directly from the browser to the selected provider. Production can also use the owner's Mistral server proxy configured through Vercel env. Without either option, VibeCraft runs in <strong>Offline Demo Mode</strong> with built-in templates.
           </span>
         </div>
 
