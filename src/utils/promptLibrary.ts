@@ -54,7 +54,7 @@ export const getPromptMock = (promptText: string): string => {
   <div class="card">
     <h1>Custom Generation</h1>
     <p>We received your custom prompt: <strong>"${promptText}"</strong></p>
-    <p>Please enter your Gemini API key in the settings to generate live bespoke versions using AI.</p>
+    <p>Please enter Mistral API keys in the settings to generate live bespoke versions using AI.</p>
   </div>
 </body>
 </html>`;

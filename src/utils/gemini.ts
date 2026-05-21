@@ -1,5 +1,5 @@
 import { getPromptMock } from './promptLibrary';
-import type { GenerationMode } from '../types/workspace';
+import type { AiProvider, GenerationMode } from '../types/workspace';
 
 export type GenerateResult =
   | { type: 'code'; content: string }
@@ -12,21 +12,37 @@ const modeLabels: Record<GenerationMode, string> = {
   explain: 'Reading current app for explanation...',
 };
 
+const getConfiguredProvider = (): AiProvider => {
+  const provider = localStorage.getItem('vibecraft_ai_provider');
+  return provider === 'gemini' ? 'gemini' : 'mistral';
+};
+
+export const hasConfiguredAiProvider = (): boolean => {
+  const provider = getConfiguredProvider();
+  if (provider === 'gemini') {
+    return Boolean(localStorage.getItem('vibecraft_api_key')?.trim());
+  }
+
+  return Boolean(
+    localStorage.getItem('vibecraft_mistral_api_key_1')?.trim()
+    || localStorage.getItem('vibecraft_mistral_api_key_2')?.trim()
+  );
+};
+
 export const generateCode = async (
   promptText: string,
   onStepChange: (step: number, status: string) => void,
   previousCode?: string,
   mode: GenerationMode = previousCode?.trim() ? 'refine' : 'build'
 ): Promise<GenerateResult> => {
-  const apiKey = localStorage.getItem('vibecraft_api_key') || '';
-  const modelName = localStorage.getItem('vibecraft_model') || 'gemini-2.5-flash';
+  const provider = getConfiguredProvider();
   const hasExistingCode = Boolean(previousCode?.trim());
 
   // Helper to sleep for simulation delays
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   // --- MOCK MODE (OFFLINE) ---
-  if (!apiKey) {
+  if (!hasConfiguredAiProvider()) {
     if (mode === 'explain') {
       onStepChange(0, 'Reading local HTML...');
       await sleep(400);
@@ -37,13 +53,13 @@ export const generateCode = async (
       return {
         type: 'explanation',
         content: hasExistingCode
-          ? 'Demo Offline Mode explanation: this is a standalone HTML app rendered in the sandbox preview. It contains its own markup, styles, and browser-side JavaScript. Add a Gemini API key to get a deeper code-level explanation.'
+          ? 'Demo Offline Mode explanation: this is a standalone HTML app rendered in the sandbox preview. It contains its own markup, styles, and browser-side JavaScript. Add a Mistral or Gemini API key in Settings to get a deeper code-level explanation.'
           : 'There is no generated app to explain yet. Build or load a starter template first.',
       };
     }
 
     if (mode !== 'build') {
-      throw new Error(`${mode === 'fix' ? 'Fixing' : 'Refining'} an existing app requires Gemini API access. Demo mode can load starter templates only.`);
+      throw new Error(`${mode === 'fix' ? 'Fixing' : 'Refining'} an existing app requires AI provider access. Demo mode can load starter templates only.`);
     }
 
     onStepChange(0, 'Analyzing project requirements...');
@@ -64,9 +80,7 @@ export const generateCode = async (
 
   // --- AI MODE (ONLINE) ---
   try {
-    onStepChange(0, 'Connecting to Gemini API...');
-    const { GoogleGenAI } = await import('@google/genai');
-    const ai = new GoogleGenAI({ apiKey });
+    onStepChange(0, `Connecting to ${provider === 'mistral' ? 'Mistral' : 'Gemini'} API...`);
     await sleep(500);
 
     if ((mode === 'refine' || mode === 'fix' || mode === 'explain') && !hasExistingCode) {
@@ -103,14 +117,15 @@ Do not rewrite the code. Do not output HTML. If the user asks for changes, expla
 
     onStepChange(2, mode === 'explain' ? 'Preparing explanation...' : mode === 'fix' ? 'Applying targeted correction...' : 'Generating premium CSS styling...');
     
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: userPromptByMode[mode],
-      config: {
-        systemInstruction: mode === 'explain' ? explainSystemPrompt : codeSystemPrompt,
-        temperature: 0.2,
-      }
-    });
+    const responseText = provider === 'mistral'
+      ? await generateWithMistral({
+        systemPrompt: mode === 'explain' ? explainSystemPrompt : codeSystemPrompt,
+        userPrompt: userPromptByMode[mode],
+      })
+      : await generateWithGemini({
+        systemPrompt: mode === 'explain' ? explainSystemPrompt : codeSystemPrompt,
+        userPrompt: userPromptByMode[mode],
+      });
 
     onStepChange(3, mode === 'explain' ? 'Writing explanation...' : 'Compiling interactive JavaScript logic...');
     await sleep(800);
@@ -119,20 +134,100 @@ Do not rewrite the code. Do not output HTML. If the user asks for changes, expla
       onStepChange(4, 'Explanation ready!');
       return {
         type: 'explanation',
-        content: response.text?.trim() || 'No explanation was returned.',
+        content: responseText.trim() || 'No explanation was returned.',
       };
     }
 
-    const code = normalizeGeneratedHtml(response.text || '');
+    const code = normalizeGeneratedHtml(responseText);
 
     onStepChange(4, 'Compilation complete!');
     return { type: 'code', content: code };
   } catch (error: unknown) {
-    console.error('Gemini API Error:', error);
+    console.error('AI provider error:', error);
     onStepChange(4, 'Generation failed.');
-    const message = error instanceof Error ? error.message : 'Failed to generate code via Gemini API.';
+    const message = error instanceof Error ? error.message : 'Failed to generate code via the configured AI provider.';
     throw new Error(message, { cause: error });
   }
+};
+
+const generateWithGemini = async ({
+  systemPrompt,
+  userPrompt,
+}: {
+  systemPrompt: string;
+  userPrompt: string;
+}): Promise<string> => {
+  const apiKey = localStorage.getItem('vibecraft_api_key') || '';
+  const modelName = localStorage.getItem('vibecraft_model') || 'gemini-2.5-flash';
+  const { GoogleGenAI } = await import('@google/genai');
+  const ai = new GoogleGenAI({ apiKey });
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: userPrompt,
+    config: {
+      systemInstruction: systemPrompt,
+      temperature: 0.2,
+    }
+  });
+
+  return response.text || '';
+};
+
+const generateWithMistral = async ({
+  systemPrompt,
+  userPrompt,
+}: {
+  systemPrompt: string;
+  userPrompt: string;
+}): Promise<string> => {
+  const keys = [
+    localStorage.getItem('vibecraft_mistral_api_key_1')?.trim(),
+    localStorage.getItem('vibecraft_mistral_api_key_2')?.trim(),
+  ].filter((key): key is string => Boolean(key));
+  const modelName = localStorage.getItem('vibecraft_mistral_model') || 'mistral-large-latest';
+
+  let lastError: Error | null = null;
+
+  for (let index = 0; index < keys.length; index += 1) {
+    try {
+      const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${keys[index]}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: modelName,
+          temperature: 0.2,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Mistral key ${index + 1} failed with ${response.status}: ${errorText.slice(0, 240)}`);
+      }
+
+      const data = await response.json() as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error(`Mistral key ${index + 1} returned an empty response.`);
+      }
+
+      return content;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unknown Mistral API error.');
+    }
+  }
+
+  throw lastError || new Error('No Mistral API key is configured.');
 };
 
 const normalizeGeneratedHtml = (rawCode: string): string => {

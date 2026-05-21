@@ -172,6 +172,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
         <button
           onClick={onOpenSettings}
+          aria-label="Open settings"
+          title="Open settings"
           style={{
             background: 'none',
             border: 'none',

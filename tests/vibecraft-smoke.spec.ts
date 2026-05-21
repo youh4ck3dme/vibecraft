@@ -82,3 +82,25 @@ test('explain mode answers without replacing the current app', async ({ page }) 
   await expect(page.locator('span').filter({ hasText: /^DEMO TEMPLATE$/ })).toBeVisible();
   await expect(page.locator('iframe[title="VibeCraft Sandbox Preview"]')).toBeVisible();
 });
+
+test('settings supports two Mistral keys for online mode', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    localStorage.clear();
+  });
+  await page.reload();
+
+  await page.getByRole('button', { name: /open settings/i }).click();
+
+  await expect(page.getByText('AI Provider Settings')).toBeVisible();
+  await expect(page.getByLabel('Active Provider')).toHaveValue('mistral');
+  await page.getByLabel('Mistral API Key 1').fill('mistral-primary-test-key');
+  await page.getByLabel('Mistral API Key 2').fill('mistral-fallback-test-key');
+  await page.getByLabel('Mistral Model').selectOption('mistral-medium-latest');
+  await page.getByRole('button', { name: /save configuration/i }).click();
+
+  await expect(page.getByText('AI Online Mode')).toBeVisible();
+  await expect(page.evaluate(() => localStorage.getItem('vibecraft_ai_provider'))).resolves.toBe('mistral');
+  await expect(page.evaluate(() => localStorage.getItem('vibecraft_mistral_api_key_1'))).resolves.toBe('mistral-primary-test-key');
+  await expect(page.evaluate(() => localStorage.getItem('vibecraft_mistral_api_key_2'))).resolves.toBe('mistral-fallback-test-key');
+});

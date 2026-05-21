@@ -4,7 +4,7 @@ import { ChatArea } from './components/ChatArea';
 import type { ChatMessage } from './components/ChatArea';
 import { PreviewArea } from './components/PreviewArea';
 import { SettingsModal } from './components/SettingsModal';
-import { generateCode } from './utils/gemini';
+import { generateCode, hasConfiguredAiProvider } from './utils/gemini';
 import type { PromptItem } from './utils/promptLibrary';
 import type { GenerationMode, OutputSource, VersionRecord } from './types/workspace';
 
@@ -62,7 +62,7 @@ function App() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [inputVal, setInputVal] = useState<string>('');
-  const [hasApiKey, setHasApiKey] = useState<boolean>(() => Boolean(localStorage.getItem('vibecraft_api_key')));
+  const [hasApiKey, setHasApiKey] = useState<boolean>(() => hasConfiguredAiProvider());
 
   const createId = () => crypto.randomUUID();
 
@@ -109,7 +109,7 @@ function App() {
 
     try {
       const previousCode = requestedMode === 'build' ? undefined : generatedCode.trim() ? generatedCode : undefined;
-      const isOnlineGeneration = Boolean(localStorage.getItem('vibecraft_api_key'));
+      const isOnlineGeneration = hasConfiguredAiProvider();
       const result = await generateCode(promptText, (step, status) => {
         setActiveStep(step);
         setStepStatusText(status);
@@ -158,7 +158,7 @@ function App() {
               ? 'Updated your application. The preview and code view now reflect the requested change.'
             : isOnlineGeneration
               ? 'Successfully generated your application! Click "Live Preview" or "Code View" on the right to examine it.'
-              : 'Loaded a matching offline demo template. Add a Gemini API key in Settings to generate custom apps from scratch.',
+              : 'Loaded a matching offline demo template. Add Mistral API keys in Settings to generate custom apps from scratch.',
         }
       ]);
     } catch (err: unknown) {
@@ -261,7 +261,7 @@ function App() {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        onConfigurationChange={() => setHasApiKey(Boolean(localStorage.getItem('vibecraft_api_key')))}
+        onConfigurationChange={() => setHasApiKey(hasConfiguredAiProvider())}
       />
     </div>
   );
