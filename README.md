@@ -14,6 +14,18 @@ npm run check
 
 `npm run test:smoke` starts its own Vite server through Playwright, so it can be run from a clean terminal.
 
+## Deploy
+
+The app is configured for Vercel as a static Vite build:
+
+```bash
+npm run check
+vercel
+vercel --prod
+```
+
+Use a preview deployment first. Attach a production domain only after the preview build, smoke flow, and API key settings copy have been reviewed.
+
 ## Current Notes
 
 - Without a Gemini API key, the app runs in Demo Offline Mode and loads starter templates.
