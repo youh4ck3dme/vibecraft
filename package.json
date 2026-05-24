@@ -7,9 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "test": "playwright test",
+    "test": "npm run test:api && playwright test",
+    "test:api": "node --test tests/mistral-proxy.test.mjs",
     "test:smoke": "playwright test tests/vibecraft-smoke.spec.ts",
-    "check": "npm run lint && npm run build && npm run test:smoke",
+    "check": "npm run lint && npm run build && npm run test:api && npm run test:smoke",
     "preview": "vite preview"
   },
   "dependencies": {

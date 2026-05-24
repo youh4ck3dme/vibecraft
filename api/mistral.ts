@@ -3,6 +3,7 @@ declare const process: {
 };
 
 type NodeLikeRequest = AsyncIterable<string | { toString(): string }> & {
+  headers?: Record<string, string | string[] | undefined>;
   method?: string;
 };
 
@@ -26,8 +27,14 @@ type MistralResponse = {
   }>;
 };
 
-const MAX_PROMPT_CHARS = 650_000;
+const ALLOWED_MODELS = [
+  'mistral-large-latest',
+  'mistral-medium-latest',
+  'codestral-latest',
+] as const;
+const MAX_PROMPT_CHARS = 120_000;
 const DEFAULT_MODEL = 'mistral-large-latest';
+const PRODUCTION_ORIGIN = 'https://vibecraft.rubberduck.sk';
 
 const readJsonBody = async (req: NodeLikeRequest): Promise<MistralProxyRequest> => {
   let rawBody = '';
@@ -51,6 +58,9 @@ const writeJson = (
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
   res.end(JSON.stringify(payload));
 };
 
@@ -59,17 +69,91 @@ const getMistralKeys = (): string[] => [
   process.env.MISTRAL_API_KEY_2?.trim(),
 ].filter((key): key is string => Boolean(key));
 
+const getAllowedOrigins = (): Set<string> => {
+  const origins = [PRODUCTION_ORIGIN];
+  const vercelUrl = process.env.VERCEL_URL?.trim();
+
+  if (vercelUrl) {
+    origins.push(`https://${vercelUrl}`);
+  }
+
+  return new Set(origins);
+};
+
+const getHeader = (req: NodeLikeRequest, name: string): string => {
+  const value = req.headers?.[name.toLowerCase()];
+  if (Array.isArray(value)) {
+    return value[0] || '';
+  }
+
+  return value || '';
+};
+
+const getRequestOrigin = (req: NodeLikeRequest): string => {
+  const origin = getHeader(req, 'origin');
+  if (origin) {
+    return origin;
+  }
+
+  const referer = getHeader(req, 'referer');
+  if (!referer) {
+    return '';
+  }
+
+  try {
+    return new URL(referer).origin;
+  } catch {
+    return '';
+  }
+};
+
+const isAllowedOrigin = (origin: string): boolean => {
+  return getAllowedOrigins().has(origin);
+};
+
+const isJsonRequest = (req: NodeLikeRequest): boolean => {
+  const contentType = getHeader(req, 'content-type');
+  return contentType.toLowerCase().split(';')[0].trim() === 'application/json';
+};
+
+const isAllowedModel = (model: string): model is typeof ALLOWED_MODELS[number] =>
+  ALLOWED_MODELS.includes(model as typeof ALLOWED_MODELS[number]);
+
 export default async function handler(req: NodeLikeRequest, res: NodeLikeResponse) {
+  const requestOrigin = getRequestOrigin(req);
+  const allowedOrigin = isAllowedOrigin(requestOrigin);
+
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Allow', 'POST, OPTIONS');
+
+  if (allowedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  }
+
   if (req.method === 'OPTIONS') {
-    res.statusCode = 204;
-    res.setHeader('Allow', 'POST, OPTIONS');
+    res.statusCode = allowedOrigin ? 204 : 403;
     res.end();
     return;
   }
 
   if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST, OPTIONS');
     writeJson(res, 405, { error: 'Method not allowed.' });
+    return;
+  }
+
+  if (!allowedOrigin) {
+    writeJson(res, 403, { error: 'Origin is not allowed.' });
+    return;
+  }
+
+  if (!isJsonRequest(req)) {
+    writeJson(res, 415, { error: 'Content-Type must be application/json.' });
     return;
   }
 
@@ -95,6 +179,11 @@ export default async function handler(req: NodeLikeRequest, res: NodeLikeRespons
 
   if (!systemPrompt.trim() || !userPrompt.trim()) {
     writeJson(res, 400, { error: 'systemPrompt and userPrompt are required.' });
+    return;
+  }
+
+  if (!isAllowedModel(model)) {
+    writeJson(res, 400, { error: 'Unsupported model.' });
     return;
   }
 
