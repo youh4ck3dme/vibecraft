@@ -46,7 +46,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   };
 
   return (
-    <div style={{
+    <div className="settings-backdrop" style={{
       position: 'fixed',
       top: 0, left: 0, width: '100vw', height: '100vh',
       backgroundColor: 'rgba(0, 0, 0, 0.75)',
@@ -56,7 +56,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
       alignItems: 'center',
       justifyContent: 'center'
     }}>
-      <div className="glass-panel" style={{
+      <div className="glass-panel settings-card" style={{
         width: '90%',
         maxWidth: '450px',
         maxHeight: '90vh',
@@ -68,7 +68,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
         boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
         position: 'relative'
       }}>
-        <button onClick={onClose} style={{
+        <button onClick={onClose} className="icon-button" style={{
           position: 'absolute',
           top: '20px', right: '20px',
           background: 'none', border: 'none',

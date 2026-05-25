@@ -90,7 +90,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       height: '100%'
     }}>
       {/* Top Header */}
-      <div style={{
+      <div className="panel-header" style={{
         padding: '16px 24px',
         borderBottom: '1px solid var(--border-color)',
         display: 'flex',
@@ -170,7 +170,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               }}
             >
               <div
-                className={msg.sender === 'user' ? 'glass-panel' : ''}
+                className={`message-bubble ${msg.sender === 'user' ? 'glass-panel' : ''}`}
                 style={{
                   padding: '12px 16px',
                   borderRadius: msg.sender === 'user' ? '12px 12px 0px 12px' : '12px 12px 12px 0px',
@@ -244,12 +244,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       </div>
 
       {/* Message Prompt Input Field */}
-      <form onSubmit={handleSubmit} style={{
+      <form className="panel-header" onSubmit={handleSubmit} style={{
         padding: '16px 24px',
         borderTop: '1px solid var(--border-color)',
         backgroundColor: 'var(--bg-secondary)'
       }}>
-        <div style={{
+        <div className="mode-segment" style={{
           display: 'flex',
           gap: '6px',
           marginBottom: '10px',
@@ -271,6 +271,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 disabled={isDisabled || isGenerating}
                 aria-pressed={isActive}
                 title={modeSubtitles[mode]}
+                className="mode-button"
                 style={{
                   flex: 1,
                   border: 'none',

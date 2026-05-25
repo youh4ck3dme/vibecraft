@@ -72,7 +72,7 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
       height: '100%'
     }}>
       {/* Top Header & Tabs */}
-      <div style={{
+      <div className="panel-header preview-toolbar" style={{
         padding: '12px 20px',
         borderBottom: '1px solid var(--border-color)',
         display: 'flex',
@@ -82,7 +82,7 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
         flexShrink: 0
       }}>
         {/* Tab Controls */}
-        <div style={{
+        <div className="tab-segment" style={{
           display: 'flex',
           gap: '4px',
           background: 'rgba(0, 0, 0, 0.2)',
@@ -92,6 +92,8 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
         }}>
           <button
             onClick={() => setActiveTab('preview')}
+            aria-pressed={activeTab === 'preview'}
+            className="tab-button"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -113,6 +115,8 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('code')}
+            aria-pressed={activeTab === 'code'}
+            className="tab-button"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -136,7 +140,7 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
 
         {/* Action Controls */}
         {code && (
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div className="preview-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <span style={{
               fontSize: '10px',
               color: sourceColors[outputSource],
@@ -204,7 +208,7 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
 
       {/* Main Content Area */}
       {risks.length > 0 && (
-        <div style={{
+        <div className="risk-banner" style={{
           padding: '10px 20px',
           borderBottom: '1px solid rgba(245, 158, 11, 0.24)',
           background: 'rgba(245, 158, 11, 0.08)',
@@ -237,10 +241,10 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
         </div>
       )}
 
-      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <div className="preview-stage" style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         {!code ? (
           /* Empty Code State */
-          <div style={{
+          <div className="empty-monitor" style={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',

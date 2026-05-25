@@ -53,7 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         alignItems: 'center',
         gap: '10px'
       }}>
-        <div style={{
+        <div className="brand-mark" style={{
           width: '32px',
           height: '32px',
           borderRadius: '8px',
@@ -83,7 +83,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Category List */}
       <div style={{ padding: '8px 16px' }}>
-        <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>
+        <p className="section-label" style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>
           Categories
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -91,6 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               key={cat.id}
               onClick={() => onSelectCategory(cat.id)}
+              className="category-button"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -128,7 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         flexDirection: 'column',
         gap: '10px'
       }}>
-        <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        <p className="section-label" style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           Starter Templates
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -136,7 +137,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div
               key={prompt.id}
               onClick={() => onSelectPrompt(prompt)}
-              className="glass-panel glass-panel-hover"
+              className="glass-panel glass-panel-hover prompt-card"
               style={{
                 padding: '10px 12px',
                 borderRadius: '10px',
@@ -164,16 +165,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
         justifyContent: 'space-between',
         backgroundColor: 'var(--bg-secondary)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: hasApiKey ? '#10b981' : '#f59e0b' }}></div>
-          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>
-            {hasApiKey ? 'AI Online Mode' : 'Demo Offline Mode'}
-          </span>
+        <div className="status-pill" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div
+            className="status-dot"
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              color: hasApiKey ? 'var(--accent-green)' : 'var(--accent-amber)',
+              backgroundColor: hasApiKey ? 'var(--accent-green)' : 'var(--accent-amber)'
+            }}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700, lineHeight: 1.1 }}>
+              {hasApiKey ? 'AI Online Mode' : 'Demo Offline Mode'}
+            </span>
+            <span style={{ fontSize: '9.5px', color: 'var(--text-muted)', fontWeight: 600, lineHeight: 1.1 }}>
+              {hasApiKey ? 'Server/BYOK ready' : 'Templates only'}
+            </span>
+          </div>
         </div>
         <button
           onClick={onOpenSettings}
           aria-label="Open settings"
           title="Open settings"
+          className="icon-button"
           style={{
             background: 'none',
             border: 'none',
