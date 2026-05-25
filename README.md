@@ -1,5 +1,7 @@
 # VibeCraft
 
+[![CI](https://github.com/youh4ck3dme/vibecraft/actions/workflows/ci.yml/badge.svg)](https://github.com/youh4ck3dme/vibecraft/actions/workflows/ci.yml)
+
 VibeCraft is a local-first, browser-based app builder for generating and editing standalone single-file HTML applications. It ships with honest offline templates, an editable code view, sandboxed preview rendering, revision history, a static HTML risk scanner, and optional AI generation through Mistral or Gemini.
 
 Production: https://vibecraft.rubberduck.sk
@@ -12,7 +14,7 @@ Production: https://vibecraft.rubberduck.sk
 | Hosting | Vercel |
 | AI backend | Hardened Mistral server proxy at `/api/mistral` |
 | Browser fallback | Optional user-owned Mistral/Gemini API keys in localStorage |
-| CI | GitHub Actions workflow configured in `.github/workflows/ci.yml`; add the badge after the repository remote is created |
+| CI | GitHub Actions runs `npm run check` on push and pull request |
 
 ## What It Does
 
