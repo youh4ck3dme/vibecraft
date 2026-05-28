@@ -1,4 +1,4 @@
-import { createArtifactId } from './request-id';
+import { createArtifactId } from './request-id.js';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 

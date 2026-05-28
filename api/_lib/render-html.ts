@@ -1,4 +1,4 @@
-import type { RenderRequest } from './render-schema';
+import type { RenderRequest } from './render-schema.js';
 
 const escapeHtml = (value: string): string =>
   value

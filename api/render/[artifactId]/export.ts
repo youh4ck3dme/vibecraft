@@ -1,8 +1,8 @@
-import { createRequestId } from '../../_lib/request-id';
-import { getArtifact } from '../../_lib/artifact-store';
-import { writeNormalizedError, setDefaultApiHeaders } from '../../_lib/errors';
-import { resolveClientIp } from '../../_lib/auth';
-import { logApiRequest } from '../../_lib/logging';
+import { createRequestId } from '../../_lib/request-id.js';
+import { getArtifact } from '../../_lib/artifact-store.js';
+import { writeNormalizedError, setDefaultApiHeaders } from '../../_lib/errors.js';
+import { resolveClientIp } from '../../_lib/auth.js';
+import { logApiRequest } from '../../_lib/logging.js';
 
 type NodeLikeRequest = {
   method?: string;

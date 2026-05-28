@@ -1,12 +1,12 @@
-import { createRequestId } from './_lib/request-id';
-import { verifyServiceToken, resolveClientIp } from './_lib/auth';
-import { checkRateLimit, readPositiveIntEnv } from './_lib/rate-limit';
-import { writeJson, writeNormalizedError } from './_lib/errors';
-import { validateRenderRequest } from './_lib/render-schema';
-import { renderWeb24hHtml } from './_lib/render-html';
-import { createArtifact } from './_lib/artifact-store';
-import { getArtifact } from './_lib/artifact-store';
-import { logApiRequest } from './_lib/logging';
+import { createRequestId } from './_lib/request-id.js';
+import { verifyServiceToken, resolveClientIp } from './_lib/auth.js';
+import { checkRateLimit, readPositiveIntEnv } from './_lib/rate-limit.js';
+import { writeJson, writeNormalizedError } from './_lib/errors.js';
+import { validateRenderRequest } from './_lib/render-schema.js';
+import { renderWeb24hHtml } from './_lib/render-html.js';
+import { createArtifact } from './_lib/artifact-store.js';
+import { getArtifact } from './_lib/artifact-store.js';
+import { logApiRequest } from './_lib/logging.js';
 
 type NodeLikeRequest = AsyncIterable<string | { toString(): string }> & {
   headers?: Record<string, string | string[] | undefined>;
@@ -86,6 +86,7 @@ export default async function handler(req: NodeLikeRequest, res: NodeLikeRespons
   let status = 200;
   let tokenIdentity = 'unknown';
   let artifactId: string | null = null;
+  let payloadKeys: string[] = [];
 
   try {
     if (req.method === 'GET') {
@@ -162,11 +163,22 @@ export default async function handler(req: NodeLikeRequest, res: NodeLikeRespons
       writeNormalizedError(res, parsed.status, parsed.errorCode, parsed.message, requestId);
       return;
     }
+    payloadKeys = parsed.value && typeof parsed.value === 'object' && !Array.isArray(parsed.value)
+      ? Object.keys(parsed.value as Record<string, unknown>)
+      : [];
 
     const validated = validateRenderRequest(parsed.value);
     if (!validated.ok) {
+      console.warn(
+        JSON.stringify({
+          event: 'render_validation_failed',
+          requestId,
+          payloadKeys,
+          message: validated.message,
+        })
+      );
       status = 400;
-      writeNormalizedError(res, 400, 'invalid_payload', validated.message, requestId);
+      writeNormalizedError(res, 400, 'render_payload_invalid', validated.message, requestId);
       return;
     }
 
@@ -186,7 +198,17 @@ export default async function handler(req: NodeLikeRequest, res: NodeLikeRespons
       },
       requestId
     );
-  } catch {
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: 'render_handler_error',
+        requestId,
+        payloadKeys,
+        errorName: error instanceof Error ? error.name : typeof error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      })
+    );
     status = 500;
     writeNormalizedError(res, 500, 'render_failed', 'Render failed.', requestId);
   } finally {
