@@ -83,7 +83,7 @@ export default async function handler(req: NodeLikeRequest, res: NodeLikeRespons
   const requestId = createRequestId();
   const startedAt = Date.now();
   const ip = resolveClientIp(req);
-  let status = 200;
+  let status: number | undefined;
   let tokenIdentity = 'unknown';
   let artifactId: string | null = null;
   let payloadKeys: string[] = [];
@@ -121,7 +121,7 @@ export default async function handler(req: NodeLikeRequest, res: NodeLikeRespons
       );
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       if (mode === 'export') {
-        res.setHeader('Content-Disposition', `attachment; filename=\"web24h-${artifact.artifactId}.html\"`);
+        res.setHeader('Content-Disposition', `attachment; filename="web24h-${artifact.artifactId}.html"`);
       }
       res.end(artifact.html);
       return;
@@ -217,7 +217,7 @@ export default async function handler(req: NodeLikeRequest, res: NodeLikeRespons
       method: req.method || 'UNKNOWN',
       requestId,
       durationMs: Date.now() - startedAt,
-      status,
+      status: status ?? 500,
       tokenIdentity,
       ip,
       artifactId,

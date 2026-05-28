@@ -59,7 +59,7 @@ export default async function handler(req: NodeLikeRequest, res: NodeLikeRespons
       "default-src 'none'; style-src 'unsafe-inline'; img-src https: data:; font-src https: data:"
     );
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename=\"web24h-${artifact.artifactId}.html\"`);
+    res.setHeader('Content-Disposition', `attachment; filename="web24h-${artifact.artifactId}.html"`);
     res.end(artifact.html);
   } finally {
     logApiRequest({
