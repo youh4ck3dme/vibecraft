@@ -24,6 +24,8 @@ blob-report/
 coverage/
 .vite/
 .vercel/
+.vercel.bak*
+*.bak
 
 # Generated verification screenshots
 vibecraft-*.png
@@ -38,3 +40,5 @@ vibecraft-*.png
 *.njsproj
 *.sln
 *.sw?
+.vercel
+.env*.local
