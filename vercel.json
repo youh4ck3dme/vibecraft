@@ -4,6 +4,14 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/render/([^/]+)/preview",
+      "destination": "/api/render?mode=preview&artifactId=$1"
+    },
+    {
+      "source": "/api/render/([^/]+)/export",
+      "destination": "/api/render?mode=export&artifactId=$1"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     },
